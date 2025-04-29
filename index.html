@@ -402,7 +402,7 @@
     const firebaseConfig = {
       apiKey: "AIzaSyDb7oF0rB1QogdDazQtMxKDzLi5DCepeVE",
       authDomain: "curso-2---trabalho-em-equipe.firebaseapp.com",
-      projectId: "curso-2---trabalho-em-equipe"
+      projectId: "curso-2---trabalho-em-equipe" 
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -462,17 +462,20 @@ const copyIcon = document.getElementById('copyIcon');
     
     // Funções do jogo
     function startGame() {
-      roleDisplay.textContent = `Você é: ${role}`;
-      
-      if (role === 'Manual') {
-        setupManual();
-      } else {
-        setupPuzzle();
-      }
-      
-      startGameTimer();
-    }
-    
+  roleDisplay.textContent = `Você é: ${role}`;
+  
+  if (role === 'Manual') {
+    setupManual();
+    roomRef.update({
+      'gameConfig.wireColors': POSSIBLE_WIRE_COLORS.slice(0, 4),
+      'gameConfig.correctWire': Math.floor(Math.random() * 4)
+    });
+  } else {
+    setupPuzzle();
+  }
+  
+  startGameTimer();
+}
     function setupManual() {
       gameDiv.innerHTML = `
         <h3>Manual de Instruções</h3>
@@ -493,17 +496,38 @@ const copyIcon = document.getElementById('copyIcon');
     }
     
     function setupPuzzle() {
-      // Gerar configuração aleatória do puzzle
-      const numWires = Math.floor(Math.random() * 3) + 3; // 3-5 fios
-      wireColors = [];
-      
-      // Selecionar cores aleatórias sem repetição
-      const availableColors = [...POSSIBLE_WIRE_COLORS];
-      for (let i = 0; i < numWires; i++) {
+    // Gerar configuração aleatória do puzzle
+    const numWires = Math.floor(Math.random() * 3) + 3; // 3-5 fios
+    wireColors = [];
+    
+    // Selecionar cores aleatórias sem repetição
+    const availableColors = [...POSSIBLE_WIRE_COLORS];
+    for (let i = 0; i < numWires; i++) {
         const randomIndex = Math.floor(Math.random() * availableColors.length);
         wireColors.push(availableColors.splice(randomIndex, 1)[0]);
-      }
-      
+    }
+    
+    // Escolher o fio correto aleatoriamente
+    correctWire = Math.floor(Math.random() * numWires);
+    
+    // Salvar configuração no Firebase
+    roomRef.update({ 
+        gameConfig: {
+            wireColors,
+            correctWire,
+            bombDefused: false
+        }
+    });
+    
+    // Listener para atualizações (FORA do loop)
+    roomRef.onSnapshot(snap => {
+        const data = snap.data().gameConfig;
+        if (data.bombDefused) {
+            document.getElementById('successMessage').style.display = 'block';
+            clearInterval(gameTimer);
+        }
+    });
+    
       // Escolher o fio correto aleatoriamente
       correctWire = Math.floor(Math.random() * numWires);
       
@@ -617,33 +641,31 @@ const copyIcon = document.getElementById('copyIcon');
     
     // Atualizar a função joinRoom para monitorar o gameConfig
     async function joinRoom(code) {
-      const doc = await roomRef.get();
-      leaderId = doc.data().leader;
-      const players = doc.data().players || [];
-      role = players.some(p => p.role === 'Manual') ? 'Desarmador' : 'Manual';
-      const newPlayer = { id: playerId, role, avatar: avatarData };
-      await roomRef.update({ players: [...players, newPlayer] });
-      roomCodeDisplay.textContent = code;
-      showScreen(lobbyScreen);
-      
-      roomRef.onSnapshot(snap => {
-        const data = snap.data();
-        updateLobby(data);
-        
-        if (data.gameStarted) {
-          if (data.players.length === 2) {
-            showScreen(gameScreen);
-            startGame();
-          }
-          
-          // Monitorar se a bomba foi desarmada
-          if (data.gameConfig?.bombDefused && role === 'Manual') {
-            document.getElementById('successMessage').style.display = 'block';
-            clearInterval(gameTimer);
-          }
-        }
-      });
+  const doc = await roomRef.get();
+  leaderId = doc.data().leader;
+  const players = doc.data().players || [];
+  role = players.some(p => p.role === 'Manual') ? 'Desarmador' : 'Manual';
+  
+  await roomRef.update({ 
+    players: [...players, { id: playerId, role, avatar: avatarData }],
+    gameConfig: { // Adiciona estado inicial do jogo
+      wireColors: [],
+      correctWire: -1,
+      bombDefused: false
     }
+  });
+
+  // Listener para atualizações em tempo real
+  roomRef.onSnapshot(snap => {
+    const data = snap.data();
+    updateLobby(data);
+    
+    if (data.gameStarted && data.players.length === 2) {
+      showScreen(gameScreen);
+      startGame();
+    }
+  });
+}
 
     createBtn.onclick = async () => {
       if (!avatarData) return alert('Selecione um avatar.');
@@ -714,20 +736,13 @@ copyIcon.onclick = () => {
 startBtn.onclick = () => {
       roomRef.update({ gameStarted: true });
     };
-
     function startGame() {
-      roleDisplay.textContent = `Você é: ${role}`;
-      const imgURL = role === 'Manual'
-        ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Bomb_icon.svg/512px-Bomb_icon.svg.png'
-        : 'https://cdn-icons-png.flaticon.com/512/2913/2913463.png';
-
-      gameDiv.innerHTML = `<img src="${imgURL}" alt="Tela do jogo" class="game-image">`;
-    }
-
-    function showScreen(screen) {
-      [menuScreen, lobbyScreen, gameScreen].forEach(s => s.classList.remove('active'));
-      screen.classList.add('active');
-    }
+  roleDisplay.textContent = `Você é: ${role}`;
+  const imgURL = role === 'Manual' 
+    ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Bomb_icon.svg/512px-Bomb_icon.svg.png'
+    : 'https://cdn-icons-png.flaticon.com/512/2913/2913463.png';
+  gameDiv.innerHTML = `<img src="${imgURL}" alt="Tela do jogo" class="game-image">`;
+}
   </script>
 </body>
 </html>

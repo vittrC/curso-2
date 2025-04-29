@@ -1,0 +1,10 @@
+﻿{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "**/node_modules/**",
+      "**/.*",
+      "**/*.log"
+    ]
+  }
+}
