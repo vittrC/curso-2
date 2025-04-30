@@ -406,6 +406,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    db.settings({ timestampsInSnapshots: true });
     const menuScreen = document.getElementById('menuScreen');
     const lobbyScreen = document.getElementById('lobbyScreen');
     const gameScreen = document.getElementById('gameScreen');
@@ -433,7 +434,7 @@ const copyIcon = document.getElementById('copyIcon');
     });
 
      
-    // Novas variáveis para o jogo
+    // variáveis para o jogo
     let gameTimer;
     let gameTimeLeft = 180; // 3 minutos
     let currentPage = 0;
@@ -592,21 +593,21 @@ const copyIcon = document.getElementById('copyIcon');
     }
     
     function cutWire(wireIndex) {
-      const wire = document.querySelectorAll('.wire')[wireIndex];
-      wire.classList.add('cut');
-      
-      if (wireIndex === correctWire) {
-        // Bomba desarmada
-        gameConfig.bombDefused = true;
-        roomRef.update({ gameConfig });
-        document.getElementById('successMessage').style.display = 'block';
-        clearInterval(gameTimer);
-      } else {
-        // Bomba explodiu
-        document.getElementById('failMessage').style.display = 'block';
-        clearInterval(gameTimer);
-      }
-    }
+  const wire = document.querySelectorAll('.wire')[wireIndex];
+  wire.classList.add('cut');
+  
+  if (wireIndex === correctWire) {
+    roomRef.update({ 
+      'gameConfig.bombDefused': true 
+    }).then(() => {
+      document.getElementById('successMessage').style.display = 'block';
+      clearInterval(gameTimer);
+    });
+  } else {
+    document.getElementById('failMessage').style.display = 'block';
+    clearInterval(gameTimer);
+  }
+}
     
     function startGameTimer() {
       gameTimeLeft = 180;
